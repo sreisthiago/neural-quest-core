@@ -3,28 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - BASELINE ENGINE v0.3</title>
+    <title>NEURAL QUEST - VISUAL HUD v0.4</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; user-select: none; }
-        #display { border: 2px solid #00ff41; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px #00ff41; text-align: center; width: 300px; transition: 0.3s; }
-        #stimulus { width: 120px; height: 120px; border-radius: 50%; background: #111; margin: 20px auto; border: 2px solid #333; display: none; cursor: pointer; }
-        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 100%; text-transform: uppercase; }
-        #status-bar { font-size: 0.7rem; margin-top: 20px; color: #008f11; text-align: center; line-height: 1.5; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow-x: hidden; user-select: none; }
+        #display { border: 2px solid #00ff41; padding: 25px; border-radius: 10px; box-shadow: 0 0 15px #00ff41; text-align: center; width: 320px; transition: 0.3s; margin-bottom: 20px; }
+        #stimulus { width: 100px; height: 100px; border-radius: 50%; background: #111; margin: 15px auto; border: 2px solid #333; display: none; cursor: pointer; }
+        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 12px 20px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; text-transform: uppercase; font-family: inherit; }
+        .btn-action:hover { background: #00ff41; color: #000; }
+        #chart-container { width: 320px; height: 150px; margin-top: 10px; opacity: 0.8; }
+        #status-bar { font-size: 0.7rem; color: #008f11; text-align: center; line-height: 1.4; max-width: 320px; }
         .alerta { border-color: #ff0000 !important; box-shadow: 0 0 20px #ff0000 !important; color: #ff0000 !important; }
-        .calibrando { border-color: #00e5ff !important; box-shadow: 0 0 20px #00e5ff !important; color: #00e5ff !important; }
+        .calibrando { border-color: #00e5ff !important; box-shadow: 0 0 15px #00e5ff !important; color: #00e5ff !important; }
+        small { display: block; margin-top: 4px; opacity: 0.8; font-size: 0.8em; }
     </style>
 </head>
 <body>
     <div id="display">
-        <h2 id="title">Neural Quest</h2>
+        <h2 style="margin: 0 0 10px 0; font-size: 1.2em;">Neural Quest</h2>
         <div id="stimulus"></div>
         <div id="result">AGUARDANDO...</div>
         <button id="startBtn" class="btn-action" onclick="prepararTeste()">INICIAR QUEST</button>
     </div>
+
+    <div id="chart-container">
+        <canvas id="performanceChart"></canvas>
+    </div>
+
     <div id="status-bar">CARREGANDO BASELINE...</div>
 
     <script>
-        let startTime, waitTimeout, sensorAtivo = false;
+        let startTime, waitTimeout, sensorAtivo = false, myChart;
         const stim = document.getElementById('stimulus');
         const res = document.getElementById('result');
         const btn = document.getElementById('startBtn');
@@ -33,27 +42,78 @@
 
         // Lógica de Memória (Baseline)
         function getHistorico() {
-            return JSON.parse(localStorage.getItem('nq_logs') || "[]");
+            return JSON.parse(localStorage.getItem('nq_logs_v4') || "[]");
         }
 
         function salvarTeste(ms) {
             let logs = getHistorico();
-            logs.push(ms);
-            if (logs.length > 10) logs.shift(); // Mantém apenas os últimos 10
-            localStorage.setItem('nq_logs', JSON.stringify(logs));
-            atualizarStatus();
+            logs.push(Math.round(ms));
+            if (logs.length > 10) logs.shift(); // Mantém os últimos 10
+            localStorage.setItem('nq_logs_v4', JSON.stringify(logs));
+            atualizarHUD();
         }
 
-        function atualizarStatus() {
+        // Módulo Visual: Inicializa/Atualiza o Gráfico Chart.js
+        function inicializarGrafico(logs, media) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            // Configuração Visual do Gráfico (Estilo Matrix/Retro)
+            const chartConfig = {
+                type: 'line',
+                data: {
+                    labels: logs.map((_, i) => i + 1), // Eixo X: Números dos testes
+                    datasets: [{
+                        label: 'Sua Latência (MS)',
+                        data: logs,
+                        borderColor: '#00ff41',
+                        backgroundColor: 'rgba(0, 255, 65, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3, // Linha curva
+                        pointBackgroundColor: '#00ff41',
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    scales: {
+                        x: { display: false }, // Esconde eixo X
+                        y: {
+                            min: 100, max: 600, // Faixa visível
+                            ticks: { color: '#008f11', font: { size: 9, family: 'Courier New' } },
+                            grid: { color: 'rgba(0, 143, 17, 0.2)' }
+                        }
+                    }
+                }
+            };
+
+            // Se o gráfico já existe, só atualiza os dados
+            if (myChart) {
+                myChart.data.labels = chartConfig.data.labels;
+                myChart.data.datasets[0].data = chartConfig.data.datasets[0].data;
+                myChart.update('none'); // Update rápido sem animação
+            } else {
+                myChart = new Chart(ctx, chartConfig);
+            }
+        }
+
+        function atualizarHUD() {
             const logs = getHistorico();
+            
             if (logs.length < 3) {
-                statusBar.innerHTML = `MODO: CALIBRAÇÃO (${logs.length}/3)<br>Continue testando para criar seu perfil.`;
+                statusBar.innerHTML = `MODO: CALIBRAÇÃO (${logs.length}/3)<br>Estabelecendo Perfil Sináptico...`;
                 box.className = 'calibrando';
+                if(logs.length > 0) inicializarGrafico(logs, 0); // Mostra o gráfico vazio
                 return null;
             }
+
             const media = logs.reduce((a, b) => a + b) / logs.length;
             statusBar.innerHTML = `MODO: OPERACIONAL | SUA MÉDIA: ${media.toFixed(0)}ms<br>Monitorando desvios de performance.`;
             box.className = '';
+            
+            // Atualiza o Gráfico com os dados reais e a média
+            inicializarGrafico(logs, media);
             return media;
         }
 
@@ -62,7 +122,9 @@
             stim.style.display = 'block';
             stim.style.backgroundColor = '#111';
             res.innerHTML = "FOCO NO CÍRCULO...";
+            box.classList.remove('alerta');
             sensorAtivo = false;
+            
             let tempoEspera = 1500 + Math.random() * 3000;
             clearTimeout(waitTimeout);
             waitTimeout = setTimeout(() => {
@@ -80,19 +142,19 @@
                 return;
             }
             const latencia = performance.now() - startTime;
-            salvarTeste(latencia);
-            const mediaAnterior = atualizarStatus();
+            const mediaAnterior = atualizarHUD(); // Pega a média ANTES de salvar o novo
+            salvarTeste(latencia); // Salva o novo e atualiza o gráfico
 
             res.innerHTML = `REAÇÃO: <b>${latencia.toFixed(0)}ms</b>`;
             
-            // Lógica de Comparação Individual
+            // Lógica de Comparação Individual (25% pior que a média)
             if (mediaAnterior && latencia > (mediaAnterior * 1.25)) {
-                res.innerHTML += "<br><small>ALERTA: QUEDA DE PERFORMANCE</small>";
+                res.innerHTML += "<br><small>ALERTA: FADIGA DETECTADA</small>";
                 box.classList.add('alerta');
             } else if (latencia < 150) {
-                res.innerHTML += "<br><small>ERRO: DADO INVÁLIDO</small>";
+                res.innerHTML += "<br><small>DADO INVÁLIDO (MUITO RÁPIDO)</small>";
             } else {
-                res.innerHTML += "<br><small>ESTADO NOMINAL</small>";
+                res.innerHTML += "<br><small>ESTADO NOMINAL (OK)</small>";
             }
 
             resetarInterface("NOVO TESTE");
@@ -105,8 +167,8 @@
             btn.innerText = txt;
         }
 
-        // Inicializa o HUD
-        atualizarStatus();
+        // Inicializa o HUD e o Gráfico na carga da página
+        window.onload = atualizarHUD;
     </script>
 </body>
 </html>
