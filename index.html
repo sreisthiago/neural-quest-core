@@ -2,21 +2,66 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>NEURAL QUEST - HUD v0.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL QUEST - SENSOR ALPHA</title>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-transform: uppercase; }
-        #display { border: 2px solid #00ff41; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px #00ff41; text-align: center; width: 300px; }
-        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; }
-        .btn-action:hover { background: #00ff41; color: #000; }
-        #status { font-size: 0.8rem; margin-top: 20px; opacity: 0.6; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        #display { border: 2px solid #00ff41; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px #00ff41; text-align: center; width: 280px; transition: 0.3s; }
+        #stimulus { width: 100px; height: 100px; border-radius: 50%; background: #000; margin: 20px auto; border: 1px solid #333; display: none; cursor: pointer; }
+        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 100%; }
+        #status { font-size: 0.7rem; margin-top: 20px; color: #008f11; }
+        .alerta { border-color: red !important; box-shadow: 0 0 20px red !important; color: red !important; }
     </style>
 </head>
 <body>
     <div id="display">
-        <h2 id="title">Neural Quest</h2>
+        <h2 id="title">NEURAL QUEST</h2>
+        <div id="stimulus"></div>
         <div id="result">-- MS --</div>
-        <button class="btn-action" onclick="alert('Iniciando Handshake de Hardware...')">INICIAR QUEST</button>
+        <button id="startBtn" class="btn-action" onclick="iniciarTeste()">INICIAR QUEST</button>
     </div>
-    <div id="status">Protocolo Akita Shinnosuke v0.1 Ativo</div>
+    <div id="status">SENSOR AKITA V.01 | READY</div>
+
+    <script>
+        let startTime, testActive = false;
+        const stim = document.getElementById('stimulus');
+        const res = document.getElementById('result');
+        const btn = document.getElementById('startBtn');
+        const box = document.getElementById('display');
+
+        function iniciarTeste() {
+            btn.style.display = 'none';
+            res.innerText = "AGUARDE O SINAL...";
+            testActive = true;
+            
+            // Tempo aleatório entre 2 e 5 segundos
+            let waitTime = 2000 + Math.random() * 3000;
+            
+            setTimeout(() => {
+                if(!testActive) return;
+                stim.style.display = 'block';
+                stim.style.backgroundColor = '#00ff41'; // SINAL VERDE
+                startTime = performance.now();
+            }, waitTime);
+        }
+
+        stim.onclick = () => {
+            const latency = performance.now() - startTime;
+            stim.style.display = 'none';
+            res.innerHTML = `REAÇÃO: <b>${latency.toFixed(0)}MS</b>`;
+            btn.style.display = 'block';
+            btn.innerText = "REPETIR TESTE";
+            testActive = false;
+
+            // Feedback Visual de Performance
+            if(latency > 400) {
+                box.classList.add('alerta');
+                res.innerHTML += "<br><small>ALERTA: FADIGA DETECTADA</small>";
+            } else {
+                box.classList.remove('alerta');
+                res.innerHTML += "<br><small>PRONTIDÃO NOMINAL</small>";
+            }
+        };
+    </script>
 </body>
 </html>
