@@ -3,65 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - SENSOR ALPHA</title>
+    <title>NEURAL QUEST - SENSOR ALPHA v0.2</title>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         #display { border: 2px solid #00ff41; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px #00ff41; text-align: center; width: 280px; transition: 0.3s; }
-        #stimulus { width: 100px; height: 100px; border-radius: 50%; background: #000; margin: 20px auto; border: 1px solid #333; display: none; cursor: pointer; }
-        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 100%; }
+        #stimulus { width: 120px; height: 120px; border-radius: 50%; background: #000; margin: 20px auto; border: 2px solid #333; display: none; cursor: pointer; }
+        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; width: 100%; font-family: inherit; text-transform: uppercase; }
         #status { font-size: 0.7rem; margin-top: 20px; color: #008f11; }
         .alerta { border-color: red !important; box-shadow: 0 0 20px red !important; color: red !important; }
+        small { display: block; margin-top: 5px; opacity: 0.8; }
     </style>
 </head>
 <body>
     <div id="display">
-        <h2 id="title">NEURAL QUEST</h2>
+        <h2 id="title">Neural Quest</h2>
         <div id="stimulus"></div>
-        <div id="result">-- MS --</div>
-        <button id="startBtn" class="btn-action" onclick="iniciarTeste()">INICIAR QUEST</button>
+        <div id="result">AGUARDANDO...</div>
+        <button id="startBtn" class="btn-action" onclick="prepararTeste()">INICIAR QUEST</button>
     </div>
-    <div id="status">SENSOR AKITA V.01 | READY</div>
+    <div id="status">SENSOR AKITA v0.2 | STANDBY</div>
 
     <script>
-        let startTime, testActive = false;
+        let startTime, waitTimeout;
+        let sensorAtivo = false;
+        
         const stim = document.getElementById('stimulus');
         const res = document.getElementById('result');
         const btn = document.getElementById('startBtn');
         const box = document.getElementById('display');
 
-        function iniciarTeste() {
+        // Fase 1: Preparação (Esconde o botão, limpa o estado)
+        function prepararTeste() {
             btn.style.display = 'none';
-            res.innerText = "AGUARDE O SINAL...";
-            testActive = true;
+            stim.style.display = 'block';
+            stim.style.backgroundColor = '#111'; // Cor neutra (aguardando)
+            res.innerHTML = "FOCO NO CÍRCULO...<br>Aguarde o VERDE";
+            box.classList.remove('alerta');
             
-            // Tempo aleatório entre 2 e 5 segundos
-            let waitTime = 2000 + Math.random() * 3000;
+            sensorAtivo = false; // Garante que o sensor não meça antes da hora
             
-            setTimeout(() => {
-                if(!testActive) return;
-                stim.style.display = 'block';
-                stim.style.backgroundColor = '#00ff41'; // SINAL VERDE
-                startTime = performance.now();
-            }, waitTime);
+            // Tempo aleatório entre 2 e 5 segundos para o sinal verde
+            let tempoEspera = 2000 + Math.random() * 3000;
+            
+            // Cancela qualquer timeout anterior por segurança
+            clearTimeout(waitTimeout);
+            
+            waitTimeout = setTimeout(ativarSinal, tempoEspera);
         }
 
-        stim.onclick = () => {
-            const latency = performance.now() - startTime;
-            stim.style.display = 'none';
-            res.innerHTML = `REAÇÃO: <b>${latency.toFixed(0)}MS</b>`;
-            btn.style.display = 'block';
-            btn.innerText = "REPETIR TESTE";
-            testActive = false;
+        // Fase 2: O Estímulo (Sinal Verde e início da contagem)
+        function ativarSinal() {
+            stim.style.backgroundColor = '#00ff41'; // SINAL VERDE NOMINAL
+            startTime = performance.now();
+            sensorAtivo = true; // Agora o clique vale
+        }
 
-            // Feedback Visual de Performance
-            if(latency > 400) {
-                box.classList.add('alerta');
-                res.innerHTML += "<br><small>ALERTA: FADIGA DETECTADA</small>";
-            } else {
-                box.classList.remove('alerta');
-                res.innerHTML += "<br><small>PRONTIDÃO NOMINAL</small>";
+        // Fase 3: A Reação (Clique no círculo)
+        stim.onclick = () => {
+            // Se clicar antes do verde, ignoramos (ou penalizamos)
+            if (!sensorAtivo) {
+                res.innerHTML = "ERRO: CLIQUE PRECOCE<br>Aguarde o Sinal Verde.";
+                clearTimeout(waitTimeout); // Para o teste
+                resetarInterface("TENTAR NOVAMENTE");
+                return;
             }
+
+            const latencia = performance.now() - startTime;
+            
+            stim.style.display = 'none';
+            res.innerHTML = `REAÇÃO: <b>${latencia.toFixed(0)}ms</b>`;
+            
+            // Processamento do Resultado
+            if (latencia < 150) {
+                res.innerHTML += "<br><small>ERRO: RESPOSTA INVÁLIDA (MUITO RÁPIDO)</small>";
+                box.classList.add('alerta');
+            } else if (latencia > 450) {
+                res.innerHTML += "<br><small>ALERTA: FADIGA DETECTADA (>450ms)</small>";
+                box.classList.add('alerta');
+            } else {
+                res.innerHTML += "<br><small>PRONTIDÃO NOMINAL (OK)</small>";
+                box.classList.remove('alerta');
+            }
+
+            resetarInterface("REPETIR QUEST");
+            sensorAtivo = false;
         };
+
+        function resetarInterface(textoBotao) {
+            stim.style.display = 'none';
+            btn.style.display = 'block';
+            btn.innerText = textoBotao;
+        }
     </script>
 </body>
 </html>
