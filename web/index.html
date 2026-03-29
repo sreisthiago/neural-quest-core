@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>NEURAL QUEST - HUD v0.1</title>
+    <style>
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-transform: uppercase; }
+        #display { border: 2px solid #00ff41; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px #00ff41; text-align: center; width: 300px; }
+        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 15px 30px; cursor: pointer; margin-top: 20px; font-weight: bold; }
+        .btn-action:hover { background: #00ff41; color: #000; }
+        #status { font-size: 0.8rem; margin-top: 20px; opacity: 0.6; }
+    </style>
+</head>
+<body>
+    <div id="display">
+        <h2 id="title">Neural Quest</h2>
+        <div id="result">-- MS --</div>
+        <button class="btn-action" onclick="alert('Iniciando Handshake de Hardware...')">INICIAR QUEST</button>
+    </div>
+    <div id="status">Protocolo Akita Shinnosuke v0.1 Ativo</div>
+</body>
+</html>
