@@ -3,164 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - MATRIX v1.0</title>
+    <title>NEURAL QUEST - MATRIX v1.1</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; user-select: none; }
-        #game-container { position: relative; border: 2px solid #00ff41; border-radius: 10px; width: 340px; height: 340px; box-shadow: 0 0 20px #00ff41; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,20,0,0.2); }
-        #target { width: 60px; height: 60px; border-radius: 50%; position: absolute; cursor: pointer; display: none; transition: transform 0.1s; }
-        .btn-start { background: #00ff41; color: #000; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; font-family: inherit; z-index: 10; }
-        #hud-info { margin-top: 15px; text-align: center; font-size: 0.8rem; }
-        #chart-area { width: 340px; height: 120px; margin-top: 10px; }
-        .msg { font-size: 1.1em; text-align: center; padding: 20px; }
+        #game-container { position: relative; border: 2px solid #00ff41; border-radius: 10px; width: 340px; height: 340px; box-shadow: 0 0 20px #00ff41; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,20,0,0.1); }
+        #target { width: 60px; height: 60px; border-radius: 50%; position: absolute; cursor: pointer; display: none; z-index: 5; }
+        .btn-start { background: #00ff41; color: #000; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; font-family: inherit; z-index: 10; text-transform: uppercase; }
+        #chart-area { width: 340px; height: 120px; margin-top: 20px; }
+        #hud-info { margin-top: 15px; text-align: center; font-size: 0.8rem; color: #00ff41; }
+        .msg-screen { font-size: 1.1em; text-align: center; padding: 20px; z-index: 8; pointer-events: none; }
+        small { display: block; margin-top: 5px; opacity: 0.7; }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div id="msg-screen" class="msg">SISTEMA INICIALIZADO<br><small>Selecione o Protocolo</small></div>
+        <div id="msg-screen" class="msg-screen">NEURAL QUEST<br><small>SISTEMA DE PRONTIDÃO v1.1</small></div>
         <div id="target"></div>
-        <button id="mainBtn" class="btn-start" onclick="iniciarSequencia()">INICIAR BATERIA</button>
+        <button id="mainBtn" class="btn-start" onclick="iniciarBateria()">INICIAR AVALIAÇÃO (16 CICLOS)</button>
     </div>
 
     <div id="chart-area"><canvas id="perfChart"></canvas></div>
     
     <div id="hud-info">
-        PROTOCOLO: <span id="protocolo-name">STANDBY</span><br>
-        <small id="stat-line">Aguardando autorização do Knight...</small>
+        PROTOCOLO: <span id="proto-label">STANDBY</span> | CICLO: <span id="ciclo-label">0/4</span>
     </div>
 
     <script>
-        let stage = 0;
+        const protocolos = [
+            { id: 0, name: "REACTION", color: "#00ff41", desc: "Velocidade Pura" },
+            { id: 1, name: "CHASE", color: "#00e5ff", desc: "Foco Espacial" },
+            { id: 2, name: "FILTER", color: "#ffea00", desc: "Inibição (Só Verde!)" },
+            { id: 3, name: "CHRONOS", color: "#ff00ff", desc: "Percepção Temporal" }
+        ];
+
+        let currentProtocolIdx = 0;
+        let currentTrial = 0;
+        const TRIALS_PER_PROTO = 4;
         let results = [];
         let startTime;
+        let isActive = false;
+
         const target = document.getElementById('target');
         const msg = document.getElementById('msg-screen');
         const btn = document.getElementById('mainBtn');
-        const protoName = document.getElementById('protocolo-name');
+        const protoLabel = document.getElementById('proto-label');
+        const cicloLabel = document.getElementById('ciclo-label');
 
-        const protocolos = [
-            { name: "REACTION", color: "#00ff41", desc: "Clique no VERDE rápido" },
-            { name: "CHASE", color: "#00e5ff", desc: "Persiga o alvo na tela" },
-            { name: "FILTER", color: "#ffea00", desc: "Apenas VERDE! Ignore Vermelho" },
-            { name: "FOCUS", color: "#ff00ff", desc: "Clique no 3º pulso exato" }
-        ];
-
-        function iniciarSequencia() {
-            stage = 0;
+        function iniciarBateria() {
+            currentProtocolIdx = 0;
+            currentTrial = 0;
             results = [];
             btn.style.display = 'none';
-            proximoProtocolo();
+            proximoCiclo();
         }
 
-        function proximoProtocolo() {
-            if (stage >= 4) {
-                finalizarBateria();
+        function proximoCiclo() {
+            if (currentProtocolIdx >= 4) {
+                finalizar();
                 return;
             }
-            const p = protocolos[stage];
-            protoName.innerText = p.name;
-            msg.innerHTML = `PROTOCOLO ${stage + 1}<br><b>${p.name}</b><br><small>${p.desc}</small>`;
-            
-            setTimeout(() => {
-                msg.innerHTML = "";
-                executarTeste(p.name);
-            }, 2000);
+
+            const p = protocolos[currentProtocolIdx];
+            protoLabel.innerText = p.name;
+            cicloLabel.innerText = `${currentTrial + 1}/${TRIALS_PER_PROTO}`;
+
+            if (currentTrial === 0) {
+                msg.innerHTML = `PROTOCOLO: ${p.name}<br><small>${p.desc}</small>`;
+                setTimeout(() => { msg.innerHTML = ""; prepararTeste(); }, 1500);
+            } else {
+                prepararTeste();
+            }
         }
 
-        function executarTeste(tipo) {
+        function prepararTeste() {
+            target.style.display = 'none';
+            isActive = false;
+            let wait = 800 + Math.random() * 1500;
+            
+            setTimeout(() => {
+                const p = protocolos[currentProtocolIdx];
+                posicionar(p.id);
+                ativarAlvo(p.id);
+            }, wait);
+        }
+
+        function posicionar(type) {
+            if (type === 1) { // CHASE: Aleatório
+                target.style.top = (20 + Math.random() * 240) + "px";
+                target.style.left = (20 + Math.random() * 240) + "px";
+            } else { // Centro
+                target.style.top = "140px";
+                target.style.left = "140px";
+            }
+        }
+
+        function ativarAlvo(type) {
             target.style.display = 'block';
             target.style.transform = "scale(1)";
             
-            if (tipo === "REACTION") {
-                posicionarCentro();
-                target.style.backgroundColor = "#111";
-                setTimeout(() => {
-                    target.style.backgroundColor = "#00ff41";
-                    startTime = performance.now();
-                }, 1000 + Math.random() * 2000);
-            } 
-            else if (tipo === "CHASE") {
-                posicionarAleatorio();
-                target.style.backgroundColor = "#00e5ff";
-                startTime = performance.now();
-            }
-            else if (tipo === "FILTER") {
-                posicionarCentro();
-                let isRed = Math.random() > 0.5;
+            if (type === 2) { // FILTER
+                let isRed = Math.random() > 0.4;
                 target.style.backgroundColor = isRed ? "red" : "#00ff41";
-                startTime = performance.now();
                 if (isRed) {
-                    setTimeout(() => { if(target.style.backgroundColor === "red") registrar(800, true); }, 1500);
+                    startTime = performance.now();
+                    isActive = true;
+                    // Se o usuário NÃO clicar no vermelho em 1s, sucesso.
+                    setTimeout(() => {
+                        if (isActive && target.style.backgroundColor === "red") {
+                            registrar(0); // Sucesso por inibição
+                        }
+                    }, 1000);
+                    return;
                 }
-            }
-            else if (tipo === "FOCUS") {
-                posicionarCentro();
+            } else if (type === 3) { // CHRONOS: Pisca 3x, clica na 3ª
                 target.style.backgroundColor = "#111";
-                let pulsos = 0;
-                let interval = setInterval(() => {
-                    pulsos++;
-                    target.style.transform = "scale(1.2)";
-                    setTimeout(() => target.style.transform = "scale(1)", 100);
-                    if (pulsos === 3) {
-                        target.style.backgroundColor = "#ff00ff";
+                let count = 0;
+                let blink = setInterval(() => {
+                    count++;
+                    target.style.backgroundColor = (count === 3) ? "#ff00ff" : "#333";
+                    if (count === 3) {
                         startTime = performance.now();
-                        clearInterval(interval);
+                        isActive = true;
+                        clearInterval(blink);
                     }
                 }, 600);
+                return;
+            } else {
+                target.style.backgroundColor = protocolos[type].color;
             }
+            
+            startTime = performance.now();
+            isActive = true;
         }
 
         target.onclick = () => {
+            if (!isActive) return;
+            const diff = performance.now() - startTime;
+
             if (target.style.backgroundColor === "red") {
-                registrar(1000, false); // Penalidade por erro
+                registrar(1000); // Penalidade por erro de filtro
                 return;
             }
-            if (target.style.backgroundColor === "#111") return;
-            
-            const duracao = performance.now() - startTime;
-            registrar(duracao, true);
+            registrar(diff);
         };
 
-        function registrar(ms, sucesso) {
+        function registrar(ms) {
+            isActive = false;
             target.style.display = 'none';
-            results.push(ms);
-            stage++;
-            proximoProtocolo();
+            results.push({ type: protocolos[currentProtocolIdx].name, time: ms });
+            
+            currentTrial++;
+            if (currentTrial >= TRIALS_PER_PROTO) {
+                currentProtocolIdx++;
+                currentTrial = 0;
+            }
+            proximoCiclo();
         }
 
-        function posicionarCentro() {
-            target.style.top = "140px";
-            target.style.left = "140px";
-        }
+        function finalizar() {
+            msg.innerHTML = "ANÁLISE COMPLETA";
+            protoLabel.innerText = "CONCLUÍDO";
+            
+            const resumo = protocolos.map(p => {
+                const pRes = results.filter(r => r.type === p.name);
+                return pRes.reduce((a, b) => a + b.time, 0) / TRIALS_PER_PROTO;
+            });
 
-        function posicionarAleatorio() {
-            target.style.top = Math.random() * 250 + "px";
-            target.style.left = Math.random() * 250 + "px";
-        }
-
-        function finalizarBateria() {
-            msg.innerHTML = "BATERIA CONCLUÍDA<br>Analisando Sinais...";
-            const media = results.reduce((a,b) => a+b) / 4;
             setTimeout(() => {
-                msg.innerHTML = `SCORE NEURAL: ${media.toFixed(0)}ms<br><small>Baseline Atualizada</small>`;
+                const totalMedia = resumo.reduce((a, b) => a + b) / 4;
+                msg.innerHTML = `SCORE NEURAL: ${totalMedia.toFixed(0)}ms<br><small>Matriz de Performance Gerada</small>`;
                 btn.style.display = 'block';
-                btn.innerText = "REPETIR BATERIA";
-                salvarEPlotar(results);
-            }, 1500);
+                btn.innerText = "REINICIAR";
+                plotar(resumo);
+            }, 1000);
         }
 
-        // Gráfico simplificado para os 4 tipos
-        function salvarEPlotar(res) {
+        function plotar(dados) {
             const ctx = document.getElementById('perfChart').getContext('2d');
-            if(window.myChart) window.myChart.destroy();
+            if (window.myChart) window.myChart.destroy();
             window.myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['REAC', 'CHASE', 'FILT', 'FOC'],
-                    datasets: [{ label: 'ms', data: res, backgroundColor: ['#00ff41', '#00e5ff', '#ffea00', '#ff00ff'] }]
+                    labels: ['REAC', 'CHASE', 'FILT', 'CHRO'],
+                    datasets: [{
+                        data: dados,
+                        backgroundColor: ['#00ff41', '#00e5ff', '#ffea00', '#ff00ff'],
+                        borderWidth: 0
+                    }]
                 },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#111' }, ticks: { color: '#00ff41' } } }
+                }
             });
         }
     </script>
