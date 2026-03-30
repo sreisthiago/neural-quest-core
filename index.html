@@ -3,249 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - ADMIN v1.5</title>
+    <title>NEURAL QUEST - RISK MANAGEMENT v1.6</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2ecc71; --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; --danger: #e74c3c; --warning: #f1c40f; }
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        #app { width: 360px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
+        :root { --primary: #2ecc71; --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; --danger: #ff4d4d; --warning: #f1c40f; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Layout Admin */
+        #admin-view { width: 95%; max-width: 1000px; display: none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 8px; text-align: center; }
+        
+        /* Tabelas e Tags */
+        .admin-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; background: var(--panel); color: var(--text); font-size: 0.9rem; }
+        th { background: #1f242c; padding: 15px; text-align: left; border-bottom: 2px solid var(--border); }
+        td { padding: 12px 15px; border-bottom: 1px solid var(--border); }
+        
+        .badge { padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; color: #000; }
+        .badge-safe { background: var(--primary); }
+        .badge-warn { background: var(--warning); }
+        .badge-crit { background: var(--danger); }
+
+        /* Estilo Operador (Miniaturizado) */
+        #app { width: 360px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         .screen { display: none; text-align: center; }
         .active { display: block; }
-        
-        /* Estilo Admin */
-        #admin-panel { width: 90vw; max-width: 800px; background: var(--panel); border: 1px solid var(--primary); padding: 20px; display: none; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85rem; }
-        th, td { border: 1px solid var(--border); padding: 10px; text-align: left; }
-        .status-tag { padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #000; font-size: 0.7rem; }
-        
-        /* Elementos de Jogo */
-        #game-canvas { width: 320px; height: 320px; border: 1px solid var(--border); background: #000; position: relative; margin: 10px auto; overflow: hidden; display: none; }
-        #target { width: 55px; height: 55px; border-radius: 50%; position: absolute; cursor: pointer; display: none; border: 2px solid rgba(255,255,255,0.2); }
-        .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 4px; text-transform: uppercase; margin-top: 10px; }
+        #game-canvas { width: 100%; height: 310px; border: 1px solid var(--border); background: #000; position: relative; margin: 10px 0; display: none; }
+        #target { width: 50px; height: 50px; border-radius: 50%; position: absolute; cursor: pointer; display: none; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 10px; }
         input { background: #000; border: 1px solid var(--border); color: var(--primary); width: 90%; padding: 12px; margin-bottom: 10px; border-radius: 4px; }
-        #admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.3; font-size: 0.6rem; cursor: pointer; color: var(--text); }
+        #admin-toggle { position: fixed; top: 10px; right: 10px; padding: 8px 15px; background: #30363d; border-radius: 20px; cursor: pointer; font-size: 0.7rem; border: 1px solid var(--border); z-index: 100; }
     </style>
 </head>
 <body>
 
+<div id="admin-toggle" onclick="toggleAdmin()">⚙️ ACESSO SUPERVISOR</div>
+
 <div id="app">
     <div id="screen-login" class="screen active">
-        <h2 style="color:var(--primary)">Neural Quest</h2>
-        <p style="font-size:0.8rem">Terminal de Prontidão Diária</p>
-        <input type="text" id="uName" placeholder="Nome do Operador">
-        <input type="text" id="uID" placeholder="Matrícula">
-        <button class="btn" onclick="showIntro()">Acessar Teste</button>
+        <h2 style="color:var(--primary)">NEURAL QUEST</h2>
+        <p style="font-size:0.8rem; opacity:0.6">VALIDAÇÃO DE APTIDÃO OPERACIONAL</p>
+        <input type="text" id="uName" placeholder="NOME DO OPERADOR">
+        <input type="text" id="uID" placeholder="MATRÍCULA">
+        <button class="btn" onclick="showIntro()">INICIAR LOGIN</button>
     </div>
 
     <div id="screen-intro" class="screen">
-        <h2 id="proto-title">Instruções</h2>
+        <h2 id="proto-title">--</h2>
         <div id="proto-desc" style="padding:15px; background:#000; border-left:4px solid var(--primary); text-align:left; font-size:0.9rem; margin:15px 0;"></div>
-        <button class="btn" onclick="startCurrentBlock()">Iniciar Protocolo</button>
+        <button class="btn" onclick="startBlock()">AUTORIZAR INÍCIO</button>
     </div>
 
-    <div id="game-container" style="display:none;">
-        <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-bottom:5px;">
-            <span id="label-mode">MODO</span>
-            <span id="label-count">0/16</span>
+    <div id="game-container" style="display:none">
+        <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--primary); margin-bottom:5px;">
+            <span id="label-mode">--</span>
+            <span id="label-count">--</span>
         </div>
         <div id="game-canvas"><div id="target"></div></div>
     </div>
 
     <div id="screen-result" class="screen">
-        <h2>Avaliação Concluída</h2>
-        <div style="height:150px"><canvas id="perfChart"></canvas></div>
-        <div id="final-score" style="margin-top:10px; font-weight:bold; color:var(--primary);"></div>
-        <button class="btn" onclick="location.reload()">Sair do Terminal</button>
+        <h2>SESSÃO FINALIZADA</h2>
+        <canvas id="resChart" height="150"></canvas>
+        <div id="res-score" style="margin:10px 0; font-weight:bold"></div>
+        <button class="btn" onclick="location.reload()">FECHAR TERMINAL</button>
     </div>
 </div>
 
-<div id="admin-panel">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="color:var(--primary); margin:0;">Dashboard de Supervisão (RH)</h2>
-        <button onclick="toggleAdmin()" style="background:var(--danger); border:none; color:#fff; padding:5px 10px; cursor:pointer; border-radius:4px;">Fechar</button>
-    </div>
-    <div style="margin-top:10px;">
-        <button onclick="clearLogs()" style="background:none; color:gray; border:1px solid gray; cursor:pointer; font-size:0.7rem;">Limpar Histórico</button>
-    </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Operador (ID)</th>
-                <th>Data/Hora</th>
-                <th>Score Médio</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody id="admin-table-body">
-            </tbody>
-    </table>
-</div>
+<div id="admin-view">
+    <h1 style="color:var(--primary); margin-bottom: 5px;">Painel de Controle NR-1</h1>
+    <p style="opacity:0.6; margin-bottom: 25px;">Gerenciamento de Riscos e Prontidão Cognitiva</p>
 
-<div id="admin-trigger" onclick="toggleAdmin()">MODO SUPERVISOR [ADMIN]</div>
+    <div class="grid">
+        <div class="card">
+            <h3 style="margin:0; opacity:0.7; font-size:0.8rem">SAÚDE DO TURNO</h3>
+            <div id="safety-score" style="font-size:2.5rem; font-weight:bold; color:var(--primary)">100%</div>
+            <p style="font-size:0.7rem">Aptidão Geral do Setor</p>
+        </div>
+        <div class="card">
+            <h3 style="margin:0; opacity:0.7; font-size:0.8rem">DISTRIBUIÇÃO DE RISCO</h3>
+            <canvas id="riskPie" height="100"></canvas>
+        </div>
+        <div class="card">
+            <h3 style="margin:0; opacity:0.7; font-size:0.8rem">AÇÃO PREVENTIVA</h3>
+            <p id="action-text" style="font-size:0.85rem; margin-top:10px">Nenhuma anomalia detectada no turno atual.</p>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div style="padding:15px; background:#1f242c; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1rem">LOGS DE AUDITORIA</h3>
+            <button onclick="localStorage.clear(); location.reload();" style="background:none; border:1px solid #444; color:#888; font-size:0.6rem; cursor:pointer">LIMPAR DADOS</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>OPERADOR</th>
+                    <th>SETOR/ID</th>
+                    <th>HORÁRIO</th>
+                    <th>SCORE MÉDIO</th>
+                    <th>ANÁLISE</th>
+                </tr>
+            </thead>
+            <tbody id="log-table"></tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:20px; font-size:0.8rem; background:rgba(46, 204, 113, 0.1); padding:15px; border-radius:8px; border:1px solid rgba(46, 204, 113, 0.2)">
+        <strong>📌 NOTA NR-1:</strong> Este dashboard serve como evidência de monitoramento ativo de riscos psicossociais e fadiga. Recomenda-se realocação para scores em <span style="color:var(--danger)">VERMELHO</span>.
+    </div>
+</div>
 
 <script>
-    let operator = { name: '', id: '' };
-    let stage = 0, trial = 0, results = [], startTime, isActive = false, blinkInterval;
-    
-    const protocols = [
-        { name: "REAÇÃO", color: "#2ecc71", desc: "Clique rápido no VERDE." },
-        { name: "BUSCA", color: "#3498db", desc: "Localize o alvo azul na tela." },
-        { name: "FILTRO", color: "#2ecc71", desc: "SÓ VERDE. Ignore o vermelho." },
-        { name: "RITMO", color: "#9b59b6", desc: "Clique na 3ª piscada (Roxo)." }
+    let op = {name:'', id:''}, stage=0, trial=0, results=[], startTime, active=false, blink;
+    const protos = [
+        {n:"REAÇÃO", c:"#2ecc71", d:"Clique no alvo verde o mais rápido possível."},
+        {n:"BUSCA", c:"#3498db", d:"O alvo mudará de posição. Coordenação motora ativa."},
+        {n:"FILTRO", c:"#2ecc71", d:"SÓ VERDE. Ignorar alvos vermelhos. (Inibição)"},
+        {n:"RITMO", c:"#9b59b6", d:"Clique na 3ª piscada. (Atenção Sustentada)"}
     ];
 
-    // --- LÓGICA DE ADMIN ---
     function toggleAdmin() {
+        const admin = document.getElementById('admin-view');
         const app = document.getElementById('app');
-        const admin = document.getElementById('admin-panel');
         if(admin.style.display === 'none' || admin.style.display === '') {
-            app.style.display = 'none';
-            admin.style.display = 'block';
-            loadAdminData();
+            admin.style.display = 'block'; app.style.display = 'none';
+            renderAdmin();
         } else {
-            app.style.display = 'block';
-            admin.style.display = 'none';
+            admin.style.display = 'none'; app.style.display = 'block';
         }
     }
 
-    function loadAdminData() {
-        const logs = JSON.parse(localStorage.getItem('nq_global_logs') || "[]");
-        const tbody = document.getElementById('admin-table-body');
+    function renderAdmin() {
+        const logs = JSON.parse(localStorage.getItem('nq_logs_v16') || "[]");
+        const tbody = document.getElementById('log-table');
         tbody.innerHTML = "";
         
-        logs.reverse().forEach(log => {
-            let status = "APTO";
-            let color = "var(--primary)";
-            if(log.score > 450) { status = "ATENÇÃO"; color = "var(--warning)"; }
-            if(log.score > 600) { status = "RISCO"; color = "var(--danger)"; }
+        let safeCount = 0, warnCount = 0, critCount = 0;
 
-            tbody.innerHTML += `
-                <tr>
-                    <td>${log.name} (${log.id})</td>
-                    <td>${log.date}</td>
-                    <td>${log.score.toFixed(0)}ms</td>
-                    <td><span class="status-tag" style="background:${color}">${status}</span></td>
-                </tr>
-            `;
+        logs.reverse().forEach(l => {
+            let tag = "SAFE", cls = "badge-safe", score = l.score;
+            if(score > 450) { tag = "WARN"; cls = "badge-warn"; warnCount++; }
+            else if(score > 600) { tag = "CRIT"; cls = "badge-crit"; critCount++; }
+            else { safeCount++; }
+
+            tbody.innerHTML += `<tr>
+                <td>${l.name}</td><td>${l.id}</td><td>${l.time}</td>
+                <td><b>${score.toFixed(0)}ms</b></td>
+                <td><span class="badge ${cls}">${tag}</span></td>
+            </tr>`;
+        });
+
+        const total = safeCount + warnCount + critCount;
+        const health = total > 0 ? (safeCount / total * 100).toFixed(0) : 100;
+        document.getElementById('safety-score').innerText = health + "%";
+        if(critCount > 0) document.getElementById('action-text').innerHTML = `<span style="color:var(--danger)">⚠️ CRÍTICO:</span> ${critCount} operador(es) com alto risco. Recomenda-se pausa imediata.`;
+
+        // Gráfico de Pizza no Admin
+        new Chart(document.getElementById('riskPie'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Seguro', 'Atenção', 'Crítico'],
+                datasets: [{ data: [safeCount, warnCount, critCount], backgroundColor: ['#2ecc71', '#f1c40f', '#ff4d4d'], borderWeight: 0 }]
+            },
+            options: { plugins: { legend: { display: false } }, cutout: '70%' }
         });
     }
 
-    function saveGlobalLog(score) {
-        const logs = JSON.parse(localStorage.getItem('nq_global_logs') || "[]");
-        logs.push({
-            name: operator.name,
-            id: operator.id,
-            score: score,
-            date: new Date().toLocaleString('pt-BR')
-        });
-        localStorage.setItem('nq_global_logs', JSON.stringify(logs));
-    }
-
-    function clearLogs() {
-        if(confirm("Deseja apagar todos os registros do RH?")) {
-            localStorage.removeItem('nq_global_logs');
-            loadAdminData();
-        }
-    }
-
-    // --- LÓGICA DO JOGO (v1.4 simplificada para o Admin) ---
+    // --- MOTOR DO TESTE ---
     function showIntro() {
-        operator.name = document.getElementById('uName').value;
-        operator.id = document.getElementById('uID').value;
-        if(!operator.name || !operator.id) return alert("Identifique-se.");
+        op.name = document.getElementById('uName').value;
+        op.id = document.getElementById('uID').value;
+        if(!op.name || !op.id) return alert("Dados Obrigatórios");
         document.getElementById('screen-login').classList.remove('active');
-        updateIntro();
-    }
-
-    function updateIntro() {
         document.getElementById('screen-intro').classList.add('active');
-        document.getElementById('proto-title').innerText = protocols[stage].name;
-        document.getElementById('proto-desc').innerText = protocols[stage].desc;
+        document.getElementById('proto-title').innerText = protos[stage].n;
+        document.getElementById('proto-desc').innerText = protos[stage].d;
     }
 
-    function startCurrentBlock() {
+    function startBlock() {
         document.getElementById('screen-intro').classList.remove('active');
         document.getElementById('game-container').style.display = 'block';
         document.getElementById('game-canvas').style.display = 'block';
-        nextTrial();
+        next();
     }
 
-    function nextTrial() {
-        if(trial >= 4) {
-            stage++; trial = 0;
+    function next() {
+        if(trial >= 4) { 
+            stage++; trial = 0; 
+            if(stage >= 4) return finish();
             document.getElementById('game-container').style.display = 'none';
-            if(stage >= 4) return finalize();
-            updateIntro();
-            return;
+            showIntro(); return;
         }
-        const t = document.getElementById('target');
-        t.style.display = 'none';
-        isActive = false; clearInterval(blinkInterval);
-        document.getElementById('label-mode').innerText = protocols[stage].name;
+        const t = document.getElementById('target'); t.style.display = 'none';
+        active = false; clearInterval(blink);
+        document.getElementById('label-mode').innerText = protos[stage].n;
         document.getElementById('label-count').innerText = `${(stage*4)+trial+1}/16`;
-        setTimeout(spawn, 1000 + Math.random()*1500);
+        setTimeout(spawn, 800 + Math.random()*1500);
     }
 
     function spawn() {
         const t = document.getElementById('target');
-        t.style.top = (stage === 1 ? 20 + Math.random()*240 : 130) + "px";
-        t.style.left = (stage === 1 ? 20 + Math.random()*240 : 130) + "px";
+        t.style.top = (stage === 1 ? Math.random()*250 : 130) + "px";
+        t.style.left = (stage === 1 ? Math.random()*250 : 130) + "px";
         
-        if(stage === 2) {
-            let isRed = Math.random() > 0.4;
-            t.style.backgroundColor = isRed ? "#e74c3c" : "#2ecc71";
-            t.style.display = 'block';
-            startTime = performance.now(); isActive = true;
-            if(isRed) setTimeout(() => { if(isActive) register(0); }, 1200);
-        } else if(stage === 3) {
+        if(stage === 2) { // Filtro
+            let red = Math.random() > 0.4;
+            t.style.backgroundColor = red ? "#ff4d4d" : "#2ecc71";
+            if(red) setTimeout(() => { if(active) reg(0); }, 1200);
+        } else if(stage === 3) { // Ritmo
             t.style.backgroundColor = "#111"; t.style.display = 'block';
-            let b = 0; let spd = 400 + Math.random()*500;
-            blinkInterval = setInterval(() => {
-                b++;
-                if(b < 3) { t.style.backgroundColor="#333"; setTimeout(()=>t.style.backgroundColor="#111",150); }
-                else { t.style.backgroundColor="#9b59b6"; startTime=performance.now(); isActive=true; clearInterval(blinkInterval); }
-            }, spd);
-        } else {
-            t.style.backgroundColor = protocols[stage].color; t.style.display = 'block';
-            startTime = performance.now(); isActive = true;
-        }
+            let b = 0, s = 400 + Math.random()*500;
+            blink = setInterval(() => {
+                b++; if(b<3) { t.style.backgroundColor="#333"; setTimeout(()=>t.style.backgroundColor="#111",150); }
+                else { t.style.backgroundColor="#9b59b6"; startTime=performance.now(); active=true; clearInterval(blink); }
+            }, s);
+            return;
+        } else { t.style.backgroundColor = protos[stage].c; }
+        
+        t.style.display = 'block'; startTime = performance.now(); active = true;
     }
 
     document.getElementById('target').onclick = () => {
-        if(!isActive) return;
-        const diff = performance.now() - startTime;
-        if(document.getElementById('target').style.backgroundColor === "rgb(231, 76, 60)") return register(1500);
-        register(diff);
+        if(!active) return;
+        const d = performance.now() - startTime;
+        if(document.getElementById('target').style.backgroundColor === "rgb(255, 77, 77)") return reg(1500);
+        reg(d);
     };
 
-    function register(ms) {
-        isActive = false; results.push(ms); trial++;
-        nextTrial();
-    }
+    function reg(ms) { active = false; results.push(ms); trial++; next(); }
 
-    function finalize() {
+    function finish() {
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('screen-result').classList.add('active');
         const media = results.reduce((a,b)=>a+b)/16;
-        document.getElementById('final-score').innerHTML = `SCORE: ${media.toFixed(0)}ms`;
-        saveGlobalLog(media);
-        plotar();
-    }
+        document.getElementById('res-score').innerText = `SCORE: ${media.toFixed(0)}ms`;
+        
+        const logs = JSON.parse(localStorage.getItem('nq_logs_v16') || "[]");
+        logs.push({name: op.name, id: op.id, score: media, time: new Date().toLocaleTimeString()});
+        localStorage.setItem('nq_logs_v16', JSON.stringify(logs));
 
-    function plotar() {
-        const ctx = document.getElementById('perfChart').getContext('2d');
-        new Chart(ctx, {
+        new Chart(document.getElementById('resChart'), {
             type: 'bar',
             data: {
                 labels: ['REAC', 'BUSC', 'FILT', 'RITM'],
-                datasets: [{ data: [
-                    results.slice(0,4).reduce((a,b)=>a+b)/4,
-                    results.slice(4,8).reduce((a,b)=>a+b)/4,
-                    results.slice(8,12).reduce((a,b)=>a+b)/4,
-                    results.slice(12,16).reduce((a,b)=>a+b)/4
-                ], backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#9b59b6'] }]
+                datasets: [{ data: [results.slice(0,4).reduce((a,b)=>a+b)/4, results.slice(4,8).reduce((a,b)=>a+b)/4, results.slice(8,12).reduce((a,b)=>a+b)/4, results.slice(12,16).reduce((a,b)=>a+b)/4], backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#9b59b6'] }]
             },
-            options: { maintainAspectRatio: false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:'#2ecc71'}}}}
+            options: { maintainAspectRatio:false, plugins:{legend:{display:false}}}
         });
     }
 </script>
