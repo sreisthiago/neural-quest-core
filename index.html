@@ -3,172 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - VISUAL HUD v0.4</title>
+    <title>NEURAL QUEST - MATRIX v1.0</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow-x: hidden; user-select: none; }
-        #display { border: 2px solid #00ff41; padding: 25px; border-radius: 10px; box-shadow: 0 0 15px #00ff41; text-align: center; width: 320px; transition: 0.3s; margin-bottom: 20px; }
-        #stimulus { width: 100px; height: 100px; border-radius: 50%; background: #111; margin: 15px auto; border: 2px solid #333; display: none; cursor: pointer; }
-        .btn-action { background: none; border: 1px solid #00ff41; color: #00ff41; padding: 12px 20px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; text-transform: uppercase; font-family: inherit; }
-        .btn-action:hover { background: #00ff41; color: #000; }
-        #chart-container { width: 320px; height: 150px; margin-top: 10px; opacity: 0.8; }
-        #status-bar { font-size: 0.7rem; color: #008f11; text-align: center; line-height: 1.4; max-width: 320px; }
-        .alerta { border-color: #ff0000 !important; box-shadow: 0 0 20px #ff0000 !important; color: #ff0000 !important; }
-        .calibrando { border-color: #00e5ff !important; box-shadow: 0 0 15px #00e5ff !important; color: #00e5ff !important; }
-        small { display: block; margin-top: 4px; opacity: 0.8; font-size: 0.8em; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; user-select: none; }
+        #game-container { position: relative; border: 2px solid #00ff41; border-radius: 10px; width: 340px; height: 340px; box-shadow: 0 0 20px #00ff41; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,20,0,0.2); }
+        #target { width: 60px; height: 60px; border-radius: 50%; position: absolute; cursor: pointer; display: none; transition: transform 0.1s; }
+        .btn-start { background: #00ff41; color: #000; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; font-family: inherit; z-index: 10; }
+        #hud-info { margin-top: 15px; text-align: center; font-size: 0.8rem; }
+        #chart-area { width: 340px; height: 120px; margin-top: 10px; }
+        .msg { font-size: 1.1em; text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
-    <div id="display">
-        <h2 style="margin: 0 0 10px 0; font-size: 1.2em;">Neural Quest</h2>
-        <div id="stimulus"></div>
-        <div id="result">AGUARDANDO...</div>
-        <button id="startBtn" class="btn-action" onclick="prepararTeste()">INICIAR QUEST</button>
+
+    <div id="game-container">
+        <div id="msg-screen" class="msg">SISTEMA INICIALIZADO<br><small>Selecione o Protocolo</small></div>
+        <div id="target"></div>
+        <button id="mainBtn" class="btn-start" onclick="iniciarSequencia()">INICIAR BATERIA</button>
     </div>
 
-    <div id="chart-container">
-        <canvas id="performanceChart"></canvas>
+    <div id="chart-area"><canvas id="perfChart"></canvas></div>
+    
+    <div id="hud-info">
+        PROTOCOLO: <span id="protocolo-name">STANDBY</span><br>
+        <small id="stat-line">Aguardando autorização do Knight...</small>
     </div>
-
-    <div id="status-bar">CARREGANDO BASELINE...</div>
 
     <script>
-        let startTime, waitTimeout, sensorAtivo = false, myChart;
-        const stim = document.getElementById('stimulus');
-        const res = document.getElementById('result');
-        const btn = document.getElementById('startBtn');
-        const box = document.getElementById('display');
-        const statusBar = document.getElementById('status-bar');
+        let stage = 0;
+        let results = [];
+        let startTime;
+        const target = document.getElementById('target');
+        const msg = document.getElementById('msg-screen');
+        const btn = document.getElementById('mainBtn');
+        const protoName = document.getElementById('protocolo-name');
 
-        // Lógica de Memória (Baseline)
-        function getHistorico() {
-            return JSON.parse(localStorage.getItem('nq_logs_v4') || "[]");
-        }
+        const protocolos = [
+            { name: "REACTION", color: "#00ff41", desc: "Clique no VERDE rápido" },
+            { name: "CHASE", color: "#00e5ff", desc: "Persiga o alvo na tela" },
+            { name: "FILTER", color: "#ffea00", desc: "Apenas VERDE! Ignore Vermelho" },
+            { name: "FOCUS", color: "#ff00ff", desc: "Clique no 3º pulso exato" }
+        ];
 
-        function salvarTeste(ms) {
-            let logs = getHistorico();
-            logs.push(Math.round(ms));
-            if (logs.length > 10) logs.shift(); // Mantém os últimos 10
-            localStorage.setItem('nq_logs_v4', JSON.stringify(logs));
-            atualizarHUD();
-        }
-
-        // Módulo Visual: Inicializa/Atualiza o Gráfico Chart.js
-        function inicializarGrafico(logs, media) {
-            const ctx = document.getElementById('performanceChart').getContext('2d');
-            
-            // Configuração Visual do Gráfico (Estilo Matrix/Retro)
-            const chartConfig = {
-                type: 'line',
-                data: {
-                    labels: logs.map((_, i) => i + 1), // Eixo X: Números dos testes
-                    datasets: [{
-                        label: 'Sua Latência (MS)',
-                        data: logs,
-                        borderColor: '#00ff41',
-                        backgroundColor: 'rgba(0, 255, 65, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3, // Linha curva
-                        pointBackgroundColor: '#00ff41',
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
-                    scales: {
-                        x: { display: false }, // Esconde eixo X
-                        y: {
-                            min: 100, max: 600, // Faixa visível
-                            ticks: { color: '#008f11', font: { size: 9, family: 'Courier New' } },
-                            grid: { color: 'rgba(0, 143, 17, 0.2)' }
-                        }
-                    }
-                }
-            };
-
-            // Se o gráfico já existe, só atualiza os dados
-            if (myChart) {
-                myChart.data.labels = chartConfig.data.labels;
-                myChart.data.datasets[0].data = chartConfig.data.datasets[0].data;
-                myChart.update('none'); // Update rápido sem animação
-            } else {
-                myChart = new Chart(ctx, chartConfig);
-            }
-        }
-
-        function atualizarHUD() {
-            const logs = getHistorico();
-            
-            if (logs.length < 3) {
-                statusBar.innerHTML = `MODO: CALIBRAÇÃO (${logs.length}/3)<br>Estabelecendo Perfil Sináptico...`;
-                box.className = 'calibrando';
-                if(logs.length > 0) inicializarGrafico(logs, 0); // Mostra o gráfico vazio
-                return null;
-            }
-
-            const media = logs.reduce((a, b) => a + b) / logs.length;
-            statusBar.innerHTML = `MODO: OPERACIONAL | SUA MÉDIA: ${media.toFixed(0)}ms<br>Monitorando desvios de performance.`;
-            box.className = '';
-            
-            // Atualiza o Gráfico com os dados reais e a média
-            inicializarGrafico(logs, media);
-            return media;
-        }
-
-        function prepararTeste() {
+        function iniciarSequencia() {
+            stage = 0;
+            results = [];
             btn.style.display = 'none';
-            stim.style.display = 'block';
-            stim.style.backgroundColor = '#111';
-            res.innerHTML = "FOCO NO CÍRCULO...";
-            box.classList.remove('alerta');
-            sensorAtivo = false;
-            
-            let tempoEspera = 1500 + Math.random() * 3000;
-            clearTimeout(waitTimeout);
-            waitTimeout = setTimeout(() => {
-                stim.style.backgroundColor = '#00ff41';
-                startTime = performance.now();
-                sensorAtivo = true;
-            }, tempoEspera);
+            proximoProtocolo();
         }
 
-        stim.onclick = () => {
-            if (!sensorAtivo) {
-                res.innerHTML = "ERRO: PRECOCE";
-                clearTimeout(waitTimeout);
-                resetarInterface("REPETIR");
+        function proximoProtocolo() {
+            if (stage >= 4) {
+                finalizarBateria();
                 return;
             }
-            const latencia = performance.now() - startTime;
-            const mediaAnterior = atualizarHUD(); // Pega a média ANTES de salvar o novo
-            salvarTeste(latencia); // Salva o novo e atualiza o gráfico
-
-            res.innerHTML = `REAÇÃO: <b>${latencia.toFixed(0)}ms</b>`;
+            const p = protocolos[stage];
+            protoName.innerText = p.name;
+            msg.innerHTML = `PROTOCOLO ${stage + 1}<br><b>${p.name}</b><br><small>${p.desc}</small>`;
             
-            // Lógica de Comparação Individual (25% pior que a média)
-            if (mediaAnterior && latencia > (mediaAnterior * 1.25)) {
-                res.innerHTML += "<br><small>ALERTA: FADIGA DETECTADA</small>";
-                box.classList.add('alerta');
-            } else if (latencia < 150) {
-                res.innerHTML += "<br><small>DADO INVÁLIDO (MUITO RÁPIDO)</small>";
-            } else {
-                res.innerHTML += "<br><small>ESTADO NOMINAL (OK)</small>";
-            }
-
-            resetarInterface("NOVO TESTE");
-            sensorAtivo = false;
-        };
-
-        function resetarInterface(txt) {
-            stim.style.display = 'none';
-            btn.style.display = 'block';
-            btn.innerText = txt;
+            setTimeout(() => {
+                msg.innerHTML = "";
+                executarTeste(p.name);
+            }, 2000);
         }
 
-        // Inicializa o HUD e o Gráfico na carga da página
-        window.onload = atualizarHUD;
+        function executarTeste(tipo) {
+            target.style.display = 'block';
+            target.style.transform = "scale(1)";
+            
+            if (tipo === "REACTION") {
+                posicionarCentro();
+                target.style.backgroundColor = "#111";
+                setTimeout(() => {
+                    target.style.backgroundColor = "#00ff41";
+                    startTime = performance.now();
+                }, 1000 + Math.random() * 2000);
+            } 
+            else if (tipo === "CHASE") {
+                posicionarAleatorio();
+                target.style.backgroundColor = "#00e5ff";
+                startTime = performance.now();
+            }
+            else if (tipo === "FILTER") {
+                posicionarCentro();
+                let isRed = Math.random() > 0.5;
+                target.style.backgroundColor = isRed ? "red" : "#00ff41";
+                startTime = performance.now();
+                if (isRed) {
+                    setTimeout(() => { if(target.style.backgroundColor === "red") registrar(800, true); }, 1500);
+                }
+            }
+            else if (tipo === "FOCUS") {
+                posicionarCentro();
+                target.style.backgroundColor = "#111";
+                let pulsos = 0;
+                let interval = setInterval(() => {
+                    pulsos++;
+                    target.style.transform = "scale(1.2)";
+                    setTimeout(() => target.style.transform = "scale(1)", 100);
+                    if (pulsos === 3) {
+                        target.style.backgroundColor = "#ff00ff";
+                        startTime = performance.now();
+                        clearInterval(interval);
+                    }
+                }, 600);
+            }
+        }
+
+        target.onclick = () => {
+            if (target.style.backgroundColor === "red") {
+                registrar(1000, false); // Penalidade por erro
+                return;
+            }
+            if (target.style.backgroundColor === "#111") return;
+            
+            const duracao = performance.now() - startTime;
+            registrar(duracao, true);
+        };
+
+        function registrar(ms, sucesso) {
+            target.style.display = 'none';
+            results.push(ms);
+            stage++;
+            proximoProtocolo();
+        }
+
+        function posicionarCentro() {
+            target.style.top = "140px";
+            target.style.left = "140px";
+        }
+
+        function posicionarAleatorio() {
+            target.style.top = Math.random() * 250 + "px";
+            target.style.left = Math.random() * 250 + "px";
+        }
+
+        function finalizarBateria() {
+            msg.innerHTML = "BATERIA CONCLUÍDA<br>Analisando Sinais...";
+            const media = results.reduce((a,b) => a+b) / 4;
+            setTimeout(() => {
+                msg.innerHTML = `SCORE NEURAL: ${media.toFixed(0)}ms<br><small>Baseline Atualizada</small>`;
+                btn.style.display = 'block';
+                btn.innerText = "REPETIR BATERIA";
+                salvarEPlotar(results);
+            }, 1500);
+        }
+
+        // Gráfico simplificado para os 4 tipos
+        function salvarEPlotar(res) {
+            const ctx = document.getElementById('perfChart').getContext('2d');
+            if(window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['REAC', 'CHASE', 'FILT', 'FOC'],
+                    datasets: [{ label: 'ms', data: res, backgroundColor: ['#00ff41', '#00e5ff', '#ffea00', '#ff00ff'] }]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
     </script>
 </body>
 </html>
