@@ -3,131 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL QUEST - INDUSTRIAL GATE v1.2</title>
+    <title>NEURAL QUEST - GUIDED UX v1.3</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2ecc71; --bg: #0d1117; --panel: #161b22; --border: #30363d; }
-        body { background: var(--bg); color: var(--primary); font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; }
+        :root { --primary: #2ecc71; --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         
-        #main-gate { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 30px; width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { text-transform: uppercase; letter-spacing: 2px; font-size: 1.2rem; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        /* Container Principal */
+        #app { width: 350px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
         
-        input { background: #000; border: 1px solid var(--border); color: var(--primary); width: 90%; padding: 12px; margin: 10px 0; border-radius: 4px; font-family: 'Courier New'; }
+        /* Telas de Login e Instruções */
+        .screen { display: none; text-align: center; }
+        .active { display: block; }
         
-        #game-area { display: none; position: relative; width: 340px; height: 340px; border: 2px solid var(--primary); border-radius: 4px; background: rgba(0,0,0,0.4); margin-top: 20px; overflow: hidden; }
-        #target { width: 50px; height: 50px; border-radius: 4px; position: absolute; cursor: pointer; display: none; box-shadow: 0 0 15px currentColor; }
+        h2 { color: var(--primary); text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; }
+        .instruction-box { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 4px; margin: 15px 0; border-left: 4px solid var(--primary); text-align: left; font-size: 0.9rem; }
         
-        .btn-action { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 4px; text-transform: uppercase; margin-top: 10px; }
-        #chart-area { width: 340px; height: 140px; margin-top: 20px; display: none; }
-        #hud { font-size: 0.75rem; margin-top: 10px; color: #8b949e; text-transform: uppercase; }
+        /* Área de Jogo */
+        #game-canvas { width: 310px; height: 310px; border: 1px solid var(--border); background: #000; position: relative; margin: 10px auto; overflow: hidden; display: none; }
+        #target { width: 55px; height: 55px; border-radius: 50%; position: absolute; cursor: pointer; display: none; border: 3px solid rgba(255,255,255,0.3); }
+        
+        /* UI Elements */
+        input { background: #000; border: 1px solid var(--border); color: var(--primary); width: 85%; padding: 12px; margin-bottom: 10px; border-radius: 4px; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 4px; text-transform: uppercase; }
+        .progress-bar { height: 4px; background: var(--border); width: 100%; margin-top: 10px; position: relative; }
+        #progress-fill { height: 100%; background: var(--primary); width: 0%; transition: 0.3s; }
     </style>
 </head>
 <body>
 
-    <div id="main-gate">
-        <h2>Identificação Operacional</h2>
-        <input type="text" id="userName" placeholder="NOME DO OPERADOR">
-        <input type="text" id="userID" placeholder="MATRÍCULA / ID">
-        <button class="btn-action" onclick="autorizar()">AUTORIZAR ACESSO</button>
+<div id="app">
+    <div id="screen-login" class="screen active">
+        <h2>Acesso ao Terminal</h2>
+        <p style="font-size: 0.8rem;">Identifique-se para iniciar a bateria.</p>
+        <input type="text" id="uName" placeholder="Nome Completo">
+        <input type="text" id="uID" placeholder="Matrícula">
+        <button class="btn" onclick="showIntro()">Próximo</button>
     </div>
 
-    <div id="game-area">
-        <div id="msg" style="padding: 40px; text-align: center; margin-top: 80px;">SISTEMA PRONTO</div>
-        <div id="target"></div>
+    <div id="screen-intro" class="screen">
+        <h2 id="proto-title">Instruções</h2>
+        <div class="instruction-box" id="proto-desc">---</div>
+        <button class="btn" onclick="startCurrentBlock()">Entendido, Iniciar</button>
     </div>
 
-    <div id="chart-area"><canvas id="perfChart"></canvas></div>
-    <div id="hud"></div>
+    <div id="game-container" style="display:none;">
+        <div id="hud-top" style="display: flex; justify-content: space-between; font-size: 0.7rem;">
+            <span id="label-mode">MODO</span>
+            <span id="label-count">0/16</span>
+        </div>
+        <div id="game-canvas">
+            <div id="target"></div>
+        </div>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+    </div>
 
-    <script>
-        let operator = { name: '', id: '' };
-        let results = [], stage = 0, trial = 0, startTime, isActive = false;
-        const protos = [
-            { name: "REAÇÃO", color: "#2ecc71" }, { name: "BUSCA", color: "#3498db" },
-            { name: "FILTRO", color: "#f1c40f" }, { name: "RITMO", color: "#9b59b6" }
-        ];
+    <div id="screen-result" class="screen">
+        <h2>Resultado da Avaliação</h2>
+        <canvas id="perfChart" style="margin: 15px 0;"></canvas>
+        <div id="final-score" style="font-weight: bold; color: var(--primary);"></div>
+        <button class="btn" style="margin-top:15px" onclick="location.reload()">Novo Teste</button>
+    </div>
+</div>
 
-        function autorizar() {
-            operator.name = document.getElementById('userName').value;
-            operator.id = document.getElementById('userID').value;
-            if(!operator.name || !operator.id) return alert("CREDENCIAIS OBRIGATÓRIAS");
-            
-            document.getElementById('main-gate').style.display = 'none';
-            document.getElementById('game-area').style.display = 'block';
-            iniciarBateria();
+<script>
+    let operator = { name: '', id: '' };
+    let stage = 0, trial = 0, results = [], startTime, isActive = false;
+    
+    const protocols = [
+        { name: "REAÇÃO SIMPLES", color: "#2ecc71", desc: "Clique no círculo assim que ele mudar de cor para VERDE. Mede sua prontidão básica." },
+        { name: "BUSCA DINÂMICA", color: "#3498db", desc: "O círculo aparecerá em locais aleatórios. Seja rápido ao localizá-lo." },
+        { name: "FILTRO COGNITIVO", color: "#f1c40f", desc: "ATENÇÃO: Só clique no VERDE. Se for VERMELHO, não clique e espere." },
+        { name: "RITMO E FOCO", color: "#9b59b6", desc: "O círculo pisca 2x. Clique apenas quando ele piscar a 3ª vez em ROXO." }
+    ];
+
+    function showIntro() {
+        operator.name = document.getElementById('uName').value;
+        operator.id = document.getElementById('uID').value;
+        if(!operator.name || !operator.id) return alert("Preencha os dados.");
+        
+        document.getElementById('screen-login').classList.remove('active');
+        updateIntroScreen();
+    }
+
+    function updateIntroScreen() {
+        document.getElementById('screen-intro').classList.add('active');
+        document.getElementById('proto-title').innerText = protocols[stage].name;
+        document.getElementById('proto-desc').innerText = protocols[stage].desc;
+    }
+
+    function startCurrentBlock() {
+        document.getElementById('screen-intro').classList.remove('active');
+        document.getElementById('game-container').style.display = 'block';
+        document.getElementById('game-canvas').style.display = 'block';
+        nextTrial();
+    }
+
+    function nextTrial() {
+        if(trial >= 4) {
+            stage++; trial = 0;
+            document.getElementById('game-container').style.display = 'none';
+            if(stage >= 4) return finalize();
+            updateIntroScreen();
+            return;
         }
 
-        function iniciarBateria() {
-            stage = 0; trial = 0; results = [];
-            proximo();
+        const t = document.getElementById('target');
+        t.style.display = 'none';
+        isActive = false;
+        
+        document.getElementById('label-mode').innerText = protocols[stage].name;
+        document.getElementById('label-count').innerText = `${(stage*4)+trial+1}/16`;
+        document.getElementById('progress-fill').style.width = `${((stage*4)+trial+1)/16*100}%`;
+
+        setTimeout(() => {
+            spawnTarget();
+        }, 1000 + Math.random()*1500);
+    }
+
+    function spawnTarget() {
+        const t = document.getElementById('target');
+        // Posicionamento
+        t.style.top = (stage === 1 ? 20 + Math.random()*220 : 125) + "px";
+        t.style.left = (stage === 1 ? 20 + Math.random()*220 : 125) + "px";
+        
+        // Lógica de Cor
+        let isRed = (stage === 2 && Math.random() > 0.4);
+        t.style.backgroundColor = isRed ? "#e74c3c" : protocols[stage].color;
+        t.style.display = 'block';
+        
+        startTime = performance.now();
+        isActive = true;
+
+        if(isRed) {
+            setTimeout(() => { if(isActive) register(0); }, 1200);
         }
+    }
 
-        function proximo() {
-            if(stage >= 4) return finalizar();
-            const p = protos[stage];
-            document.getElementById('msg').innerHTML = `PROTOCOLO: ${p.name}<br><small>CICLO ${trial+1}/4</small>`;
-            
-            setTimeout(() => {
-                document.getElementById('msg').innerHTML = "";
-                lancarAlvo(p);
-            }, 1200);
+    document.getElementById('target').onclick = () => {
+        if(!isActive) return;
+        const diff = performance.now() - startTime;
+        if(document.getElementById('target').style.backgroundColor === "rgb(231, 76, 60)") {
+            document.getElementById('game-canvas').style.borderColor = 'red';
+            setTimeout(()=> document.getElementById('game-canvas').style.borderColor = '#30363d', 300);
+            return register(1200); 
         }
+        register(diff);
+    };
 
-        function lancarAlvo(p) {
-            const t = document.getElementById('target');
-            t.style.display = 'none';
-            
-            setTimeout(() => {
-                t.style.top = (stage === 1 ? Math.random()*280 : 145) + "px";
-                t.style.left = (stage === 1 ? Math.random()*280 : 145) + "px";
-                
-                let isRed = (stage === 2 && Math.random() > 0.5);
-                t.style.backgroundColor = isRed ? "#e74c3c" : p.color;
-                t.style.display = 'block';
-                startTime = performance.now();
-                isActive = true;
+    function register(ms) {
+        isActive = false; results.push(ms); trial++;
+        nextTrial();
+    }
 
-                if(isRed) setTimeout(() => { if(isActive) registrar(0); }, 1000);
-            }, 800 + Math.random()*1200);
-        }
-
-        document.getElementById('target').onclick = () => {
-            if(!isActive) return;
-            const diff = performance.now() - startTime;
-            if(document.getElementById('target').style.backgroundColor === "rgb(231, 76, 60)") return registrar(1000);
-            registrar(diff);
-        };
-
-        function registrar(ms) {
-            isActive = false; results.push(ms); trial++;
-            if(trial >= 4) { stage++; trial = 0; }
-            proximo();
-        }
-
-        function finalizar() {
-            document.getElementById('game-area').style.display = 'none';
-            document.getElementById('chart-area').style.display = 'block';
-            const media = results.reduce((a,b)=>a+b)/16;
-            document.getElementById('hud').innerHTML = `OPERADOR: ${operator.name} | SCORE: ${media.toFixed(0)}MS`;
-            plotar();
-        }
-
-        function plotar() {
-            const ctx = document.getElementById('perfChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['REAC', 'BUSC', 'FILT', 'RITM'],
-                    datasets: [{ data: [
+    function finalize() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('screen-result').classList.add('active');
+        const media = results.reduce((a,b)=>a+b)/16;
+        document.getElementById('final-score').innerHTML = `MÉDIA FINAL: ${media.toFixed(0)}ms<br><small>${operator.name} | ID: ${operator.id}</small>`;
+        
+        const ctx = document.getElementById('perfChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['REAC', 'BUSC', 'FILT', 'RITM'],
+                datasets: [{ 
+                    data: [
                         results.slice(0,4).reduce((a,b)=>a+b)/4,
                         results.slice(4,8).reduce((a,b)=>a+b)/4,
                         results.slice(8,12).reduce((a,b)=>a+b)/4,
                         results.slice(12,16).reduce((a,b)=>a+b)/4
-                    ], backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#9b59b6'] }]
-                },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-        }
-    </script>
+                    ], 
+                    backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#9b59b6'] 
+                }]
+            },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+</script>
 </body>
 </html>
